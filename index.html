@@ -36,7 +36,6 @@
       margin: 0 auto;
     }
 
-    /* رأس الهوية والشعار */
     .header {
       background: var(--card-bg);
       border: 1px solid var(--border);
@@ -98,7 +97,6 @@
       color: var(--olive);
     }
 
-    /* أزرار التنقل بين المراحل */
     .tabs {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -130,7 +128,6 @@
       color: #fff;
     }
 
-    /* منطقة اللعب الرئيسية */
     .workspace {
       display: grid;
       grid-template-columns: 1.15fr 0.85fr;
@@ -160,17 +157,17 @@
     }
 
     .stage-title {
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       font-weight: 800;
       color: var(--navy);
     }
 
     canvas {
       width: 100%;
-      height: 330px;
+      height: 340px;
       display: block;
       border-radius: 14px;
-      background: linear-gradient(180deg, #dff1f7 0%, #f5f7f0 100%);
+      background: linear-gradient(180deg, #cdeaf5 0%, #eef4ea 100%);
       border: 1px solid var(--border);
       touch-action: none;
     }
@@ -189,16 +186,11 @@
       font-size: 0.88rem;
       font-weight: 700;
       cursor: pointer;
-      transition: transform 0.12s ease, opacity 0.15s ease;
+      transition: transform 0.12s ease;
     }
 
     .btn:active {
       transform: scale(0.98);
-    }
-
-    .btn-primary {
-      background: var(--olive);
-      color: #fff;
     }
 
     .btn-secondary {
@@ -206,7 +198,6 @@
       color: var(--navy);
     }
 
-    /* لوحة التفاعل والمهام */
     .section-label {
       font-size: 0.92rem;
       font-weight: 700;
@@ -264,14 +255,12 @@
 </head>
 <body>
   <div class="app">
-    <!-- الهوية والشعار -->
     <header class="header">
       <div class="brand">
-        <!-- ضعي ملف الشعار باسم logo.png بجانب index.html -->
         <img src="logo.png" alt="شعار عالم متزن" onerror="this.style.display='none'" />
         <div>
           <div class="brand-title">عالم متزن</div>
-          <div class="brand-sub">نموذج تجربة مصغر — فوكسل وواجهات تفاعلية</div>
+          <div class="brand-sub">نموذج مصغر — شخصيات فوكسل ومشاهد تفاعلية</div>
         </div>
       </div>
 
@@ -282,7 +271,6 @@
       </div>
     </header>
 
-    <!-- المراحل الثلاث -->
     <nav class="tabs">
       <button class="tab-btn active" data-stage="sila" onclick="switchStage('sila')">
         1. شجرة الصلة (سلوك البر اليوم)
@@ -296,7 +284,6 @@
     </nav>
 
     <main class="workspace">
-      <!-- معاينة المكعبات وإخفاء الأوجه -->
       <section class="panel">
         <div class="stage-top">
           <div class="stage-title" id="stageHeading">شجرة الصلة — اختر سلوك البر اليوم</div>
@@ -314,13 +301,12 @@
         </div>
       </section>
 
-      <!-- لوحة الاختيارات والأثر -->
       <section class="panel">
         <div class="section-label" id="choicesLabel">اختر سلوك البر اليوم:</div>
         <div class="choices-grid" id="choicesContainer"></div>
 
         <div class="feedback-box" id="feedbackBox">
-          ابدأ باختيار سلوك اليوم لتنمية شجرة الصلة ومشاهدة أثرها المباشر في النموذج.
+          اختر سلوكاً من القائمة لتنمية شجرة الصلة ومشاهدة الشخصيات والثمار في المشهد المصغر.
         </div>
 
         <div class="culling-note">
@@ -331,11 +317,42 @@
   </div>
 
   <script>
+    // أنواع المكعبات:
+    // 1: عشب/أرض، 2: خشب، 3: أوراق شجر، 4: ثمرة/تمييز سماوي، 5: كحلي الهوية،
+    // 6: بشرة الشخصية، 7: ثوب/ملابس فاتحة، 8: ملابس زرقاء/خضراء
+    const palette = {
+      1: "#6b7d2b",
+      2: "#8c6239",
+      3: "#2f855a",
+      4: "#18b8d4",
+      5: "#0e3a53",
+      6: "#e8b48c",
+      7: "#f4f1ea",
+      8: "#2b6cb0"
+    };
+
+    function createEmptyGrid(size) {
+      return Array.from({ length: size }, () =>
+        Array.from({ length: size }, () => Array(size).fill(0))
+      );
+    }
+
+    function placeVoxelCharacter(grid, x, y, z, shirtType) {
+      const size = grid.length;
+      if (x < 0 || x >= size || z < 0 || z >= size) return;
+      // أرجل
+      if (y < size) grid[x][y][z] = 5;
+      // جذع
+      if (y + 1 < size) grid[x][y + 1][z] = shirtType;
+      // رأس
+      if (y + 2 < size) grid[x][y + 2][z] = 6;
+    }
+
     const stagesData = {
       sila: {
         heading: "شجرة الصلة — اختر سلوك البر اليوم",
         label: "اختر سلوك البر اليوم:",
-        defaultMsg: "اختر سلوكاً من القائمة لتعزيز صلة الرحم وإظهار ثمار جديدة على الشجرة.",
+        defaultMsg: "اختر سلوكاً من القائمة لتنمية شجرة الصلة وبروز ثمارها بجانب الشخصيات.",
         choices: [
           { id: "gift", text: "هدية", delta: 15, msg: "إهداء لطيف يقرّب القلوب ويضيف ثمرة جديدة إلى شجرة الصلة." },
           { id: "kiss", text: "تقبيل", delta: 15, msg: "مبادرة ودّ وتوقير للوالدين ترفع من رصيد البر والأثر اليومي." },
@@ -343,35 +360,39 @@
           { id: "visit", text: "سؤال وتفقد", delta: 15, msg: "السؤال والاطمئنان يحفظ روابط الأسرة ويزيد تماسكها." }
         ],
         buildGrid(level) {
-          // شبكة مصغرة 6x6x6 تمثل جذعاً وأغصاناً وثماراً
-          const size = 6;
-          const grid = Array.from({ length: size }, () =>
-            Array.from({ length: size }, () => Array(size).fill(0))
-          );
-          // قاعدة الأرض
-          for (let x = 1; x < 5; x++) {
-            for (let z = 1; z < 5; z++) {
-              grid[x][0][z] = 1; // تربة/عشب
+          const size = 8;
+          const grid = createEmptyGrid(size);
+
+          // أرضية مصغرة
+          for (let x = 1; x < 7; x++) {
+            for (let z = 1; z < 7; z++) {
+              grid[x][0][z] = 1;
             }
           }
-          // الجذع
+
+          // جذع الشجرة في الوسط
           for (let y = 1; y <= 3; y++) {
-            grid[2][y][2] = 2; // خشب
-            grid[3][y][2] = 2;
+            grid[3][y][3] = 2;
+            grid[4][y][3] = 2;
           }
-          // أوراق وثمار تنمو مع الأثر
-          const crownTop = level >= 35 ? 5 : 4;
-          for (let x = 1; x < 5; x++) {
-            for (let y = 3; y <= crownTop; y++) {
-              for (let z = 1; z < 5; z++) {
-                if (!(x === 2 && y === 3 && z === 2)) {
-                  grid[x][y][z] = 3; // أوراق خضراء
-                }
+
+          // تاج الشجرة
+          const topY = level >= 35 ? 6 : 5;
+          for (let x = 2; x <= 5; x++) {
+            for (let y = 4; y <= topY; y++) {
+              for (let z = 2; z <= 5; z++) {
+                grid[x][y][z] = 3;
               }
             }
           }
-          if (level >= 25) grid[4][4][3] = 4; // ثمرة
-          if (level >= 40) grid[1][4][2] = 4; // ثمرة إضافية
+          if (level >= 20) grid[5][4][5] = 4;
+          if (level >= 35) grid[2][5][2] = 4;
+
+          // شخصيات فوكسل مصغرة (الابن + الوالدان)
+          placeVoxelCharacter(grid, 1, 1, 5, 8);
+          placeVoxelCharacter(grid, 6, 1, 5, 7);
+          placeVoxelCharacter(grid, 6, 1, 3, 5);
+
           return { size, grid };
         }
       },
@@ -379,7 +400,7 @@
       role: {
         heading: "دوري في الحياة — هنا يبدأ أثرك",
         label: "اختر دورك اليوم:",
-        defaultMsg: "اختر دوراً من الأدوار لتحديد نمط أثرك الإيجابي في محيطك.",
+        defaultMsg: "اختر دوراً من الأدوار لتحديد نمط أثرك الإيجابي ومشاهدة منصة الدور والشخصية.",
         choices: [
           { id: "guide", text: "المرشد", delta: 15, msg: "دور المرشد: توجيه الآخرين بوضوح وحكمة نحو الخيارات الأفضل." },
           { id: "volunteer", text: "المتطوع", delta: 15, msg: "دور المتطوع: مبادرة عملية لخدمة المجتمع دون انتظار مقابل." },
@@ -389,22 +410,29 @@
           { id: "adviser", text: "الواعظ", delta: 15, msg: "دور الواعظ: تذكير بالخير والقيم بأسلوب رفيق ومؤثر." }
         ],
         buildGrid(level) {
-          const size = 6;
-          const grid = Array.from({ length: size }, () =>
-            Array.from({ length: size }, () => Array(size).fill(0))
-          );
-          for (let x = 1; x < 5; x++) {
-            for (let z = 1; z < 5; z++) {
+          const size = 8;
+          const grid = createEmptyGrid(size);
+
+          for (let x = 1; x < 7; x++) {
+            for (let z = 1; z < 7; z++) {
               grid[x][0][z] = 1;
             }
           }
-          // برج/منصة الدور
-          const height = level >= 30 ? 4 : 3;
-          for (let y = 1; y <= height; y++) {
-            grid[2][y][2] = 5;
-            grid[3][y][3] = 5;
+
+          // منصة أثر الدور
+          const towerH = level >= 30 ? 4 : 3;
+          for (let x = 3; x <= 5; x++) {
+            for (let y = 1; y <= towerH; y++) {
+              for (let z = 2; z <= 4; z++) {
+                grid[x][y][z] = 5;
+              }
+            }
           }
-          grid[2][height + 1]?.[2] && (grid[2][Math.min(5, height + 1)][2] = 4);
+          grid[4][Math.min(7, towerH + 1)][3] = 4;
+
+          // شخصية فوكسل بجانب المنصة
+          placeVoxelCharacter(grid, 1, 1, 5, 8);
+
           return { size, grid };
         }
       },
@@ -412,7 +440,7 @@
       habits: {
         heading: "عاداتنا.. هويتنا",
         label: "اختر عادة تعزز هويتك:",
-        defaultMsg: "اختر عادة إيجابية لترسيخ السلوكيات الصحية والمنضبطة في يومك.",
+        defaultMsg: "اختر عادة إيجابية لترسيخ السلوكيات الصحية والمنضبطة في المشهد المصغر.",
         choices: [
           { id: "respect", text: "احترام المكان", delta: 15, msg: "الحفاظ على نظافة المكان وترتيبه يعكس وعياً وهوية متزنة." },
           { id: "health", text: "صحة وسلامة", delta: 20, msg: "الابتعاد عن العادات الضارة يحمي صحتك وصحة من حولك." },
@@ -420,32 +448,31 @@
           { id: "cooperation", text: "تعاون وتقدير", delta: 15, msg: "التعامل الإيجابي مع الآخرين يرسّخ ثقافة الاحترام المتبادل." }
         ],
         buildGrid(level) {
-          const size = 6;
-          const grid = Array.from({ length: size }, () =>
-            Array.from({ length: size }, () => Array(size).fill(0))
-          );
-          for (let x = 1; x < 5; x++) {
-            for (let z = 1; z < 5; z++) {
+          const size = 8;
+          const grid = createEmptyGrid(size);
+
+          for (let x = 1; x < 7; x++) {
+            for (let z = 1; z < 7; z++) {
               grid[x][0][z] = 1;
             }
           }
-          // جدار/سياج منظم يعبر عن العادات والهوية
-          for (let x = 1; x < 5; x++) {
-            grid[x][1][1] = 2;
-            grid[x][1][4] = 2;
-            if (level >= 25) grid[x][2][1] = 3;
+
+          // سياج/ممر منظم يعبر عن العادات والهوية
+          for (let x = 2; x <= 5; x++) {
+            grid[x][1][2] = 2;
+            grid[x][1][5] = 2;
+            if (level >= 25) {
+              grid[x][2][2] = 3;
+            }
           }
+
+          // شخصيات فوكسل مصغرة
+          placeVoxelCharacter(grid, 2, 1, 4, 7);
+          placeVoxelCharacter(grid, 5, 1, 4, 8);
+
           return { size, grid };
         }
       }
-    };
-
-    const palette = {
-      1: "#6b7d2b", // عشب زيتوني
-      2: "#8c6239", // خشب
-      3: "#2f855a", // أوراق
-      4: "#18b8d4", // تمييز سماوي
-      5: "#0e3a53"  // كحلي الهوية
     };
 
     let currentStage = "sila";
@@ -464,9 +491,10 @@
 
     function resizeCanvas() {
       const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * window.devicePixelRatio;
-      canvas.height = rect.height * window.devicePixelRatio;
-      ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, rect.width * dpr);
+      canvas.height = Math.max(1, rect.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
     window.addEventListener("resize", resizeCanvas);
@@ -543,10 +571,9 @@
     }
 
     function projectPoint(x, y, z, width, height) {
-      // تمركز حول منتصف الشبكة 6x6x6
-      const cx = x - 3;
+      const cx = x - 4;
       const cy = y - 2.5;
-      const cz = z - 3;
+      const cz = z - 4;
 
       const cosY = Math.cos(yaw);
       const sinY = Math.sin(yaw);
@@ -558,8 +585,8 @@
       const ry = cy * cosX - rz * sinX;
       const finalZ = cy * sinX + rz * cosX;
 
-      const scale = 28;
-      const depthFactor = 14 / (14 + finalZ * 0.45);
+      const scale = 23;
+      const depthFactor = 16 / (16 + finalZ * 0.45);
       return {
         sx: width / 2 + rx * scale * depthFactor,
         sy: height / 2 - ry * scale * depthFactor,
@@ -576,8 +603,8 @@
     }
 
     function drawScene() {
-      const width = canvas.clientWidth;
-      const height = canvas.clientHeight;
+      const width = canvas.clientWidth || 400;
+      const height = canvas.clientHeight || 340;
       ctx.clearRect(0, 0, width, height);
 
       if (autoRotate) {
@@ -589,12 +616,12 @@
       let totalFaces = 0;
 
       const dirs = [
-        { name: "top",    dx: 0,  dy: 1,  dz: 0,  shade: 1.12, corners: [[0,1,1],[1,1,1],[1,1,0],[0,1,0]] },
-        { name: "bottom", dx: 0,  dy: -1, dz: 0,  shade: 0.65, corners: [[0,0,0],[1,0,0],[1,0,1],[0,0,1]] },
-        { name: "front",  dx: 0,  dy: 0,  dz: 1,  shade: 0.95, corners: [[0,0,1],[1,0,1],[1,1,1],[0,1,1]] },
-        { name: "back",   dx: 0,  dy: 0,  dz: -1, shade: 0.78, corners: [[1,0,0],[0,0,0],[0,1,0],[1,1,0]] },
-        { name: "right",  dx: 1,  dy: 0,  dz: 0,  shade: 0.88, corners: [[1,0,1],[1,0,0],[1,1,0],[1,1,1]] },
-        { name: "left",   dx: -1, dy: 0,  dz: 0,  shade: 0.82, corners: [[0,0,0],[0,0,1],[0,1,1],[0,1,0]] }
+        { dx: 0,  dy: 1,  dz: 0,  shade: 1.12, corners: [[0,1,1],[1,1,1],[1,1,0],[0,1,0]] },
+        { dx: 0,  dy: -1, dz: 0,  shade: 0.65, corners: [[0,0,0],[1,0,0],[1,0,1],[0,0,1]] },
+        { dx: 0,  dy: 0,  dz: 1,  shade: 0.95, corners: [[0,0,1],[1,0,1],[1,1,1],[0,1,1]] },
+        { dx: 0,  dy: 0,  dz: -1, shade: 0.78, corners: [[1,0,0],[0,0,0],[0,1,0],[1,1,0]] },
+        { dx: 1,  dy: 0,  dz: 0,  shade: 0.88, corners: [[1,0,1],[1,0,0],[1,1,0],[1,1,1]] },
+        { dx: -1, dy: 0,  dz: 0,  shade: 0.82, corners: [[0,0,0],[0,0,1],[0,1,1],[0,1,0]] }
       ];
 
       for (let x = 0; x < size; x++) {
@@ -615,7 +642,7 @@
                 grid[nx][ny][nz] !== 0;
 
               if (cullingEnabled && neighborSolid) {
-                return; // إخفاء الوجه الداخلي المشترك
+                return;
               }
 
               const pts = d.corners.map(([cx, cy, cz]) =>
@@ -633,7 +660,6 @@
         }
       }
 
-      // رسم الأوجه من الأبعد إلى الأقرب
       facesToDraw.sort((a, b) => b.avgDepth - a.avgDepth);
 
       facesToDraw.forEach((face) => {
@@ -651,11 +677,4 @@
       });
 
       document.getElementById("visibleFacesCount").textContent = facesToDraw.length;
-      document.getElementById("totalFacesCount").textContent = totalFaces;
-
-      requestAnimationFrame(drawScene);
-    }
-
-    renderStageUI();
-    drawScene();
- 
+      document.getElementById("tota
