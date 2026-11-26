@@ -837,6 +837,405 @@ Object.keys(stagesData).forEach((key) => {
 
 // تفعيل الواجهة الجديدة فوراً
 injectCharactersAndQuizUI();
+
+    // =========================================================
+// إضافة: شخصيات ماينكرفت + أرض خضراء واسعة + مؤثرات صوتية برمجية
+// =========================================================
+
+// 1. نظام الصوت البرمجي (خطوات، أزرار، نجاح، امتياز - بدون موسيقى)
+const sfxEngine = {
+  ctx: null,
+  init() {
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) this.ctx = new AudioCtx();
+    }
+    if (this.ctx && this.ctx.state === "suspended") {
+      this.ctx.resume();
+    }
+  },
+  playStep() {
+    this.init();
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(110, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(55, this.ctx.currentTime + 0.06);
+    gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.06);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.06);
+  },
+  playClick() {
+    this.init();
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(420, this.ctx.currentTime);
+    gain.gain.setValueAtTime(0.07, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.08);
+  },
+  playSuccess() {
+    this.init();
+    if (!this.ctx) return;
+    [523.25, 659.25, 783.99].forEach((freq, i) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(freq, this.ctx.currentTime + i * 0.09);
+      gain.gain.setValueAtTime(0.09, this.ctx.currentTime + i * 0.09);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + i * 0.09 + 0.22);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(this.ctx.currentTime + i * 0.09);
+      osc.stop(this.ctx.currentTime + i * 0.09 + 0.22);
+    });
+  }
+};
+
+// تفعيل الصوت مع أي ضغطة زر في الصفحة
+document.addEventListener("click", (e) => {
+  if (e.target.tagName === "BUTTON") {
+    sfxEngine.playClick();
+  }
+});
+
+// 2. تحديث شخصيات ماينكرفت وحركتها في الأرض الخضراء الواسعة
+const mcCharacters = [
+  { id: "ahmed", name: "👦 أحمد", shirt: "#1e88e5", pants: "#1a237e", skin: "#f1c29b", hair: "#2b1b17" },
+  { id: "sara",  name: "👧 سارة", shirt: "#00acc1", pants: "#004d40", skin: "#f5cba7", hair: "#4a2c2a" },
+  { id: "omar",  name: "🧑 عمر",  shirt: "#43a047", pants: "#263238", skin: "#e0ac69", hair: "#1c1c1c" },
+  { id: "noura", name: "👩 نورة", shirt: "#8e24aa", pants: "#311b92", skin: "#f5cba7", hair: "#3e2723" }
+];
+
+let activeMcChar = 0;
+let mcPrivilege = false;
+let walkPhase = 0;
+
+// شخصيات مرافقة تتجول بحرية في كل مكان على الأرض الخضراء
+const roamingMobs = [
+  { x: -3.5, z: -2.0, vx: 0.04, vz: 0.02, dir: 0.4,  shirt: "#e53935", pants: "#212121", skin: "#f1c29b", hair: "#3e2723" },
+  { x:  4.0, z:  2.5, vx: -0.03, vz: 0.03, dir: 2.3, shirt: "#fb8c00", pants: "#1a237e", skin: "#e0ac69", hair: "#111111" },
+  { x: -2.0, z:  4.2, vx: 0.03, vz: -0.03, dir: -0.8, shirt: "#00897b", pants: "#263238", skin: "#f5cba7", hair: "#4e342e" }
+];
+
+// موقع اللاعب القابل للتحريك بحرية على الأرض الخضراء
+const mcPlayer = { x: 0.5, z: 3.8, dir: Math.PI };
+
+// 3. دوال مساعدة لرسم المكعبات ثلاثية الأبعاد بدقة عالية (أجزاء جسم ماينكرفت والأرض الخضراء)
+function drawBox3D(facesList, cx, cy, cz, sx, sy, sz, baseHex, rotY = 0, pivotX = 0, pivotZ = 0) {
+  const width = canvas.clientWidth || 400;
+  const height = canvas.clientHeight || 340;
+
+  const hx = sx / 2, hy = sy / 2, hz = sz / 2;
+  const localCorners = [
+    [-hx, -hy,  hz], [ hx, -hy,  hz], [ hx,  hy,  hz], [-hx,  hy,  hz], // أمام
+    [ hx, -hy, -hz], [-hx, -hy, -hz], [-hx,  hy, -hz], [ hx,  hy, -hz]  // خلف
+  ];
+
+  const cosR = Math.cos(rotY);
+  const sinR = Math.sin(rotY);
+
+  const worldCorners = localCorners.map(([lx, ly, lz]) => {
+    const rx = lx * cosR - lz * sinR;
+    const rz = lx * sinR + lz * cosR;
+    return projectPoint(cx + rx + 4, cy + ly, cz + rz + 4, width, height);
+  });
+
+  const boxFaces = [
+    { idx: [3, 2, 7, 6], shade: 1.15 }, // أعلى
+    { idx: [5, 4, 1, 0], shade: 0.65 }, // أسفل
+    { idx: [0, 1, 2, 3], shade: 0.96 }, // أمام
+    { idx: [4, 5, 6, 7], shade: 0.78 }, // خلف
+    { idx: [1, 4, 7, 2], shade: 0.88 }, // يمين
+    { idx: [5, 0, 3, 6], shade: 0.82 }  // يسار
+  ];
+
+  boxFaces.forEach(f => {
+    const pts = f.idx.map(i => worldCorners[i]);
+    const avgDepth = pts.reduce((sum, p) => sum + p.depth, 0) / 4;
+    facesList.push({
+      pts,
+      avgDepth,
+      color: shadeColor(baseHex, f.shade)
+    });
+  });
+}
+
+// رسم شخصية ماينكرفت كاملة (رأس، عيون، شعر، جذع، ذراعين، ساقين)
+function drawMinecraftCharacter(facesList, x, z, dir, colors, swing, showCrown = false) {
+  const cosD = Math.cos(dir);
+  const sinD = Math.sin(dir);
+  const offsetPos = (ox, oz) => ({
+    px: x + ox * cosD - oz * sinD,
+    pz: z + ox * sinD + oz * cosD
+  });
+
+  // الساق اليمنى واليسرى (متحركة أثناء المشي)
+  const legL = offsetPos(-0.14, Math.sin(swing) * 0.14);
+  const legR = offsetPos( 0.14, -Math.sin(swing) * 0.14);
+  drawBox3D(facesList, legL.px, 0.35, legL.pz, 0.24, 0.7, 0.24, colors.pants, dir);
+  drawBox3D(facesList, legR.px, 0.35, legR.pz, 0.24, 0.7, 0.24, colors.pants, dir);
+
+  // الجذع (القميص)
+  drawBox3D(facesList, x, 1.05, z, 0.52, 0.7, 0.28, colors.shirt, dir);
+
+  // الذراع الأيسر والأيمن (متأرجحة عكس الساقين)
+  const armL = offsetPos(-0.39, -Math.sin(swing) * 0.16);
+  const armR = offsetPos( 0.39,  Math.sin(swing) * 0.16);
+  drawBox3D(facesList, armL.px, 1.05, armL.pz, 0.22, 0.68, 0.24, colors.skin, dir);
+  drawBox3D(facesList, armR.px, 1.05, armR.pz, 0.22, 0.68, 0.24, colors.skin, dir);
+
+  // الرأس المكعب (Minecraft Head)
+  drawBox3D(facesList, x, 1.68, z, 0.54, 0.54, 0.54, colors.skin, dir);
+  // الشعر العلوي
+  drawBox3D(facesList, x, 1.92, z, 0.56, 0.14, 0.56, colors.hair, dir);
+
+  // العيون في مقدمة الوجه
+  const eyeL = offsetPos(-0.13, 0.27);
+  const eyeR = offsetPos( 0.13, 0.27);
+  drawBox3D(facesList, eyeL.px, 1.68, eyeL.pz, 0.10, 0.08, 0.04, "#111111", dir);
+  drawBox3D(facesList, eyeR.px, 1.68, eyeR.pz, 0.10, 0.08, 0.04, "#111111", dir);
+
+  // تاج الامتياز الذهبي فوق الرأس عند الإجابة الصحيحة
+  if (showCrown) {
+    drawBox3D(facesList, x, 2.12, z, 0.42, 0.16, 0.42, "#ffd54f", dir + walkPhase * 0.5);
+  }
+}
+
+// 4. إضافة أزرار تحكم باللاعب على الشاشة ولوحة المفاتيح
+function addMinecraftControls() {
+  const panels = document.querySelectorAll(".panel");
+  if (panels.length < 2) return;
+
+  // إضافة لوحة تحريك اللاعب أسفل الكانفاس
+  const moveControls = document.createElement("div");
+  moveControls.style.cssText = "display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-top:10px; padding:8px 12px; background:#f0f7f2; border-radius:12px; border:1px solid #cce3d2;";
+  moveControls.innerHTML = `
+    <span style="font-size:0.84rem; font-weight:800; color:#2e5a36;">🎮 تحريك شخصيتك في الأرض الخضراء:</span>
+    <div style="display:flex; gap:6px;">
+      <button class="btn btn-secondary" onclick="stepPlayer(0, -0.7)">▲ أمام</button>
+      <button class="btn btn-secondary" onclick="stepPlayer(0, 0.7)">▼ خلف</button>
+      <button class="btn btn-secondary" onclick="stepPlayer(-0.7, 0)">◀ يسار</button>
+      <button class="btn btn-secondary" onclick="stepPlayer(0.7, 0)">▶ يمين</button>
+    </div>
+  `;
+  panels[0].appendChild(moveControls);
+
+  // إضافة شريط اختيار شخصية ماينكرفت + سؤال الامتيازات في اللوحة الجانبية
+  const sideDiv = document.createElement("div");
+  sideDiv.style.marginBottom = "14px";
+  sideDiv.innerHTML = `
+    <div class="section-label">اختر شخصية ماينكرفت الخاصة بك:</div>
+    <div id="mcCharBtns" style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:12px;"></div>
+    <div style="background:#eef8f0; border:1.5px solid #a5d6a7; border-radius:12px; padding:10px;">
+      <div style="font-size:0.86rem; font-weight:800; color:#1b5e20; margin-bottom:6px;">🏆 تحدي الامتيازات (أجب واربح التاج الذهبي):</div>
+      <div id="mcQuizArea"></div>
+    </div>
+  `;
+  panels[1].insertBefore(sideDiv, panels[1].firstChild);
+
+  const btnGrid = document.getElementById("mcCharBtns");
+  mcCharacters.forEach((ch, idx) => {
+    const b = document.createElement("button");
+    b.className = "choice-btn" + (idx === activeMcChar ? " selected" : "");
+    b.textContent = ch.name;
+    b.onclick = () => {
+      activeMcChar = idx;
+      btnGrid.querySelectorAll("button").forEach(el => el.classList.remove("selected"));
+      b.classList.add("selected");
+      document.getElementById("feedbackBox").textContent = `تم اختيار (${ch.name})! حرك شخصيتك في الأرض الخضراء.`;
+    };
+    btnGrid.appendChild(b);
+  });
+
+  renderMcQuiz();
+}
+
+const mcQuestions = {
+  sila: {
+    q: "ما ثمرة بر الوالدين وصلة الرحم؟",
+    a: [
+      { t: "البركة في الرزق والأثر الطيب", ok: true },
+      { t: "لا تؤثر في حياة الإنسان", ok: false }
+    ]
+  },
+  role: {
+    q: "كيف يكون المسلم إيجابياً في مجتمعه؟",
+    a: [
+      { t: "بالمبادرة والإصلاح ونفع الآخرين", ok: true },
+      { t: "بالانعزال وعدم المشاركة", ok: false }
+    ]
+  },
+  habits: {
+    q: "كيف نحافظ على هويتنا وقيمنا؟",
+    a: [
+      { t: "بالانضباط والعادات الصحية الحسنة", ok: true },
+      { t: "بتقليد العادات الضارة", ok: false }
+    ]
+  }
+};
+
+function renderMcQuiz() {
+  const area = document.getElementById("mcQuizArea");
+  if (!area) return;
+  const item = mcQuestions[currentStage] || mcQuestions.sila;
+  area.innerHTML = `<div style="font-size:0.83rem; font-weight:700; margin-bottom:6px;">${item.q}</div>`;
+  item.a.forEach(opt => {
+    const btn = document.createElement("button");
+    btn.className = "choice-btn";
+    btn.style.cssText = "width:100%; margin-bottom:5px; text-align:right; font-size:0.82rem;";
+    btn.textContent = opt.t;
+    btn.onclick = () => {
+      if (opt.ok) {
+        mcPrivilege = true;
+        impactScore += 30;
+        document.getElementById("impactScore").textContent = impactScore;
+        document.getElementById("feedbackBox").textContent = "🎉 إجابة صحيحة! حصلت على التاج الذهبي و +30 نقطة أثر!";
+        btn.classList.add("selected");
+        sfxEngine.playSuccess();
+      } else {
+        document.getElementById("feedbackBox").textContent = "❌ حاول مرة أخرى لكسب امتياز التاج الذهبي.";
+      }
+    };
+    area.appendChild(btn);
+  });
+}
+
+function stepPlayer(dx, dz) {
+  mcPlayer.x = Math.max(-6.5, Math.min(6.5, mcPlayer.x + dx));
+  mcPlayer.z = Math.max(-6.5, Math.min(6.5, mcPlayer.z + dz));
+  mcPlayer.dir = Math.atan2(dx, dz);
+  walkPhase += 1.4;
+  sfxEngine.playStep();
+}
+
+window.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowUp")    stepPlayer(0, -0.7);
+  if (e.key === "ArrowDown")  stepPlayer(0,  0.7);
+  if (e.key === "ArrowLeft")  stepPlayer(-0.7, 0);
+  if (e.key === "ArrowRight") stepPlayer( 0.7, 0);
+});
+
+// ربط تبديل المراحل مع الأسئلة
+const prevSwitchStage = switchStage;
+switchStage = function(stageKey) {
+  prevSwitchStage(stageKey);
+  renderMcQuiz();
+};
+
+// 5. استبدال دالة الرسم لتوليد الأرض الخضراء الواسعة + شخصيات ماينكرفت المتحركة
+drawScene = function() {
+  const width = canvas.clientWidth || 400;
+  const height = canvas.clientHeight || 340;
+  ctx.clearRect(0, 0, width, height);
+
+  if (autoRotate) yaw += 0.005;
+  walkPhase += 0.08;
+
+  // تحريك الشخصيات المرافقة في كل مكان على الأرض الخضراء
+  roamingMobs.forEach(mob => {
+    mob.x += mob.vx;
+    mob.z += mob.vz;
+    if (mob.x > 6 || mob.x < -6) mob.vx *= -1;
+    if (mob.z > 6 || mob.z < -6) mob.vz *= -1;
+    // تجنب الاصطدام بجذع الشجرة في المنتصف (0,0)
+    if (Math.hypot(mob.x, mob.z) < 1.6) {
+      mob.vx *= -1;
+      mob.vz *= -1;
+    }
+    mob.dir = Math.atan2(mob.vx, mob.vz);
+  });
+
+  const facesToDraw = [];
+
+  // رسم الأرض الخضراء الواسعة (16x16 مربع عشبي متدرج في كل مكان)
+  for (let gx = -7; gx <= 7; gx++) {
+    for (let gz = -7; gz <= 7; gz++) {
+      const grassColor = (gx + gz) % 2 === 0 ? "#5da130" : "#6bb33b";
+      drawBox3D(facesToDraw, gx, -0.25, gz, 1.0, 0.5, 1.0, grassColor, 0);
+    }
+  }
+
+  // رسم عناصر المرحلة في المنتصف (الشجرة أو البرج أو البوابة)
+  if (currentStage === "sila") {
+    // جذع الشجرة
+    drawBox3D(facesToDraw, 0, 1.2, 0, 0.9, 2.4, 0.9, "#795548", 0);
+    // أوراق الشجرة الكثيفة
+    drawBox3D(facesToDraw, 0, 3.0, 0, 2.8, 1.8, 2.8, "#2e7d32", 0);
+    drawBox3D(facesToDraw, 0, 4.1, 0, 1.8, 1.0, 1.8, "#388e3c", 0);
+    if (impactScore >= 25) {
+      drawBox3D(facesToDraw, 1.2, 2.5, 1.1, 0.4, 0.4, 0.4, "#ffca28", 0);
+      drawBox3D(facesToDraw, -1.2, 2.7, -1.0, 0.4, 0.4, 0.4, "#29b6f6", 0);
+    }
+  } else if (currentStage === "role") {
+    const h = Math.min(4.2, 2.0 + impactScore * 0.03);
+    drawBox3D(facesToDraw, 0, h / 2, 0, 1.6, h, 1.6, "#0e3a53", 0);
+    drawBox3D(facesToDraw, 0, h + 0.4, 0, 0.7, 0.7, 0.7, "#ffd54f", walkPhase * 0.4);
+  } else {
+    drawBox3D(facesToDraw, -1.6, 1.3, 0, 0.7, 2.6, 0.7, "#6d4c41", 0);
+    drawBox3D(facesToDraw,  1.6, 1.3, 0, 0.7, 2.6, 0.7, "#6d4c41", 0);
+    drawBox3D(facesToDraw,  0,   2.8, 0, 4.0, 0.6, 0.8, "#d4a338", 0);
+  }
+
+  // رسم شخصية اللاعب المختارة بتصميم ماينكرفت
+  drawMinecraftCharacter(
+    facesToDraw,
+    mcPlayer.x,
+    mcPlayer.z,
+    mcPlayer.dir,
+    mcCharacters[activeMcChar],
+    walkPhase,
+    mcPrivilege
+  );
+
+  // رسم الشخصيات المرافقة التي تمشي في الأرض الخضراء في كل مكان
+  roamingMobs.forEach((mob, index) => {
+    drawMinecraftCharacter(
+      facesToDraw,
+      mob.x,
+      mob.z,
+      mob.dir,
+      mob,
+      walkPhase + index * 2,
+      false
+    );
+  });
+
+  // ترتيب الرسم من الأبعد للأقرب
+  facesToDraw.sort((a, b) => b.avgDepth - a.avgDepth);
+
+  facesToDraw.forEach((face) => {
+    ctx.beginPath();
+    ctx.moveTo(face.pts[0].sx, face.pts[0].sy);
+    for (let i = 1; i < face.pts.length; i++) {
+      ctx.lineTo(face.pts[i].sx, face.pts[i].sy);
+    }
+    ctx.closePath();
+    ctx.fillStyle = face.color;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(14, 58, 83, 0.14)";
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+  });
+
+  document.getElementById("visibleFacesCount").textContent = facesToDraw.length;
+  document.getElementById("totalFacesCount").textContent = facesToDraw.length + 180;
+
+  requestAnimationFrame(drawScene);
+};
+
+// تفعيل الإضافات فوراً
+addMinecraftControls();
+    
     </script>
 </body>
 </html>
